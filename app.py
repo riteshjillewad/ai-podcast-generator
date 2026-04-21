@@ -1,106 +1,82 @@
 import gradio as gr
 import os
-import time
+from datetime import datetime
 
-from services.script_service import generate_script
-from models.xtts_model import clone_voice
+from services.script_service import generate_dialogue
+from models.xtts_model import generate_podcast
 
 os.makedirs("outputs", exist_ok=True)
 
 
-def process_request(audio_file, topic, tone, duration):
+def get_timestamp_filename():
+    now = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    return f"outputs/podcast_{now}.wav"
 
-    if audio_file is None:
-        raise gr.Error("Please upload a voice sample.")
 
-    yield "⏳ Generating AI script...", None
+def get_history():
+    files = os.listdir("outputs")
+    files = [f for f in files if f.endswith(".wav")]
+    files.sort(reverse=True)
 
-    script = generate_script(topic, tone, duration)
+    return [os.path.join("outputs", f) for f in files]
 
-    yield "🎤 Cloning your voice...", None
 
-    output_audio = "outputs/final_podcast.wav"
+def process(host_audio, guest_audio, topic):
 
-    clone_voice(
-        text=script,
-        speaker_wav=audio_file,
-        output_path=output_audio
+    if host_audio is None or guest_audio is None:
+        return "Upload both voices.", None, get_history()
+
+    script = generate_dialogue(topic)
+
+    output_file = get_timestamp_filename()
+
+    generate_podcast(
+        script=script,
+        host_wav=host_audio,
+        guest_wav=guest_audio,
+        final_output=output_file
     )
 
-    yield script, output_audio
+    return script, output_file, get_history()
 
 
-with gr.Blocks(theme=gr.themes.Soft(), title="VoxCast AI") as app:
+with gr.Blocks(title="CloneCast AI") as app:
 
-    gr.Markdown("""
-    # 🎙️ VoxCast AI
-    ### Generate Podcasts in Your Own Voice
-    Upload a voice sample, choose topic & tone, and create AI podcasts instantly.
-    """)
+    gr.Markdown("# 🎙️ CloneCast AI")
+    gr.Markdown("Multi-Speaker Agentic Podcast Generator")
 
-    with gr.Tab("🎧 Generate Podcast"):
+    with gr.Tab("🎧 Generate"):
 
         with gr.Row():
 
-            with gr.Column(scale=1):
-                audio_input = gr.Audio(
-                    type="filepath",
-                    label="Upload Voice Sample"
-                )
+            with gr.Column():
+                host_audio = gr.Audio(type="filepath", label="Host Voice")
+                guest_audio = gr.Audio(type="filepath", label="Guest Voice")
+                topic = gr.Textbox(label="Podcast Topic")
 
-                topic = gr.Textbox(
-                    label="Podcast Topic",
-                    placeholder="Future of Artificial Intelligence"
-                )
+                btn = gr.Button("🚀 Generate Podcast")
 
-                tone = gr.Dropdown(
-                    ["Professional", "Casual", "Funny", "Motivational"],
-                    value="Professional",
-                    label="Tone"
-                )
-
-                duration = gr.Dropdown(
-                    ["30 Seconds", "1 Minute"],
-                    value="30 Seconds",
-                    label="Duration"
-                )
-
-                btn = gr.Button("🚀 Generate Podcast", variant="primary")
-
-            with gr.Column(scale=1):
-                script_output = gr.Textbox(
+            with gr.Column():
+                script_box = gr.Textbox(
                     label="Generated Script",
-                    lines=12
+                    lines=18
                 )
 
-                audio_output = gr.Audio(
-                    label="Podcast Output"
+                audio_box = gr.Audio(
+                    label="Latest Podcast"
                 )
 
-                file_output = gr.File(
-                    label="Download Audio"
-                )
+    with gr.Tab("📁 History"):
 
-    with gr.Tab("ℹ️ About"):
-        gr.Markdown("""
-        ## VoxCast AI
-
-        Features:
-        - AI podcast script generation
-        - Personal voice cloning
-        - Topic-based narration
-        - Fast local processing
-
-        Built using:
-        - Gradio
-        - Ollama
-        - XTTS-v2
-        """)
+        history_files = gr.Files(
+            label="Generated Podcasts",
+            value=get_history()
+        )
 
     btn.click(
-        fn=process_request,
-        inputs=[audio_input, topic, tone, duration],
-        outputs=[script_output, audio_output]
+        fn=process,
+        inputs=[host_audio, guest_audio, topic],
+        outputs=[script_box, audio_box, history_files]
     )
 
 app.launch()
