@@ -1,25 +1,27 @@
 import requests
 
 
-def generate_script(topic, tone, duration):
+def generate_dialogue(topic):
     prompt = f"""
-Write a clean single speaker podcast narration.
+Create a realistic podcast conversation between HOST and GUEST.
 
 Topic: {topic}
-Tone: {tone}
-Length: {duration}
 
 Rules:
-- Only one speaker
-- No title
-- No labels
-- No intro tags
-- No stage notes
-- Natural spoken narration
-- Maximum 80 words
-- Clear opening and closing
+- Natural conversational style
+- HOST asks engaging questions
+- GUEST gives smart informative answers
+- Alternate lines properly
+- Keep it short (6 total lines only)
+- Each line should be short and concise.
+- Use only this format:
 
-Output only final script.
+HOST: line here
+GUEST: line here
+
+No title.
+No notes.
+No extra text.
 """
 
     response = requests.post(
