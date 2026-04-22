@@ -16,9 +16,31 @@ def generate_line(text, speaker_wav, output_path):
     )
 
 
-def generate_podcast(script, host_wav, guest_wav, final_output):
+def add_intro_music(voice_audio, music_file, final_output):
+    """
+    Add intro music before podcast starts
+    """
+
+    speech = AudioSegment.from_wav(voice_audio)
+
+    music = AudioSegment.from_wav(music_file)
+
+    # lower music volume
+    music = music - 12
+
+    # keep first 5 sec only
+    intro = music[:5000]
+
+    final_audio = intro + speech
+
+    final_audio.export(final_output, format="wav")
+
+
+def generate_podcast(script, host_wav, guest_wav, final_output, music_file=None):
 
     os.makedirs("temp", exist_ok=True)
+
+    temp_voice_output = "temp/temp_voice.wav"
 
     combined = AudioSegment.silent(duration=500)
 
@@ -31,6 +53,7 @@ def generate_podcast(script, host_wav, guest_wav, final_output):
 
         if line.startswith("HOST:"):
             text = line.replace("HOST:", "").strip()
+
             temp_file = f"temp/host_{count}.wav"
 
             generate_line(text, host_wav, temp_file)
@@ -42,6 +65,7 @@ def generate_podcast(script, host_wav, guest_wav, final_output):
 
         elif line.startswith("GUEST:"):
             text = line.replace("GUEST:", "").strip()
+
             temp_file = f"temp/guest_{count}.wav"
 
             generate_line(text, guest_wav, temp_file)
@@ -51,6 +75,17 @@ def generate_podcast(script, host_wav, guest_wav, final_output):
 
             count += 1
 
-    combined.export(final_output, format="wav")
+    # save voice-only podcast first
+    combined.export(temp_voice_output, format="wav")
+
+    # if music selected, add intro music
+    if music_file and os.path.exists(music_file):
+        add_intro_music(
+            voice_audio=temp_voice_output,
+            music_file=music_file,
+            final_output=final_output
+        )
+    else:
+        combined.export(final_output, format="wav")
 
     return final_output
